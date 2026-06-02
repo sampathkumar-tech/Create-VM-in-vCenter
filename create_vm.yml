@@ -1,12 +1,31 @@
 ---
-- name: Create Virtual Machine in vCenter
+- name: Create VM in vCenter
   hosts: localhost
+  connection: local
   gather_facts: no
+
   vars:
-    vcenter_hostname: ""
-    vcenter_username: ""
-    vcenter_password: ""
-    validate_certs: false
+    vcenter_hostname: "vcenter.domain.com"
+    vcenter_username: "administrator@vsphere.local"
+    vcenter_password: "password"
+    validate_certs: no
+
+    datacenter_name: "Datacenter"
+    cluster_name: "Cluster"
+    datastore_name: "Datastore1"
+    network_name: "VM Network"
+
+    vm_name: "Test-VM01"
+    vm_template: "Win2019-Template"
+    vm_folder: "/Datacenter/vm"
+    vm_cpu: 2
+    vm_memory: 4096
+    vm_disk: 40
+    vm_ip: "192.168.1.150"
+    vm_gateway: "192.168.1.1"
+    vm_netmask: "255.255.255.0"
+    vm_dns:
+      - "8.8.8.8"
 
   tasks:
     - name: Create VM from template
@@ -15,55 +34,29 @@
         username: "{{ vcenter_username }}"
         password: "{{ vcenter_password }}"
         validate_certs: "{{ validate_certs }}"
+
+        datacenter: "{{ datacenter_name }}"
+        cluster: "{{ cluster_name }}"
+        folder: "{{ vm_folder }}"
         name: "{{ vm_name }}"
-        datacenter: "{{ datacenter }}"
-        folder: "{{ folder }}"
-        template: "{{ template_name }}"
-        state: present
+        state: poweredon
+
+        template: "{{ vm_template }}"
+        datastore: "{{ datastore_name }}"
+
         hardware:
-          memory_mb: "{{ memory_mb }}"
-          num_cpus: "{{ cpu_count }}"
+          memory_mb: "{{ vm_memory }}"
+          num_cpus: "{{ vm_cpu }}"
+
         networks:
           - name: "{{ network_name }}"
-            type: "{{ network_type | default('dvportgroup') }}"
+            type: static
+            ip: "{{ vm_ip }}"
+            netmask: "{{ vm_netmask }}"
+            gateway: "{{ vm_gateway }}"
+            dns_servers: "{{ vm_dns }}"
+
+        customization:
+          hostname: "{{ vm_name }}"
+
         wait_for_ip_address: yes
-      register: vm_create_result
-      tags:
-        - create_vm
-
-    - name: Display VM creation result
-      debug:
-        msg: "VM {{ vm_name }} created successfully with IP: {{ vm_create_result.instance.ipv4 }}"
-      tags:
-        - create_vm
-
-    - name: Power on VM
-      community.vmware.vmware_guest_powerstate:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: "{{ validate_certs }}"
-        name: "{{ vm_name }}"
-        state: powered-on
-      tags:
-        - power_on
-
-    - name: Wait for VM to be ready
-      community.vmware.vmware_guest_info:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        validate_certs: "{{ validate_certs }}"
-        name: "{{ vm_name }}"
-      register: vm_info
-      until: vm_info.instance.ipv4 is defined and vm_info.instance.ipv4 != None
-      retries: 30
-      delay: 10
-      tags:
-        - wait_for_vm
-
-    - name: Display VM information
-      debug:
-        var: vm_info.instance
-      tags:
-        - vm_info

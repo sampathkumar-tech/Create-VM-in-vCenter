@@ -1,0 +1,69 @@
+---
+- name: Create Virtual Machine in vCenter
+  hosts: localhost
+  gather_facts: no
+  vars:
+    vcenter_hostname: "{{ vcenter_host }}"
+    vcenter_username: "{{ vcenter_user }}"
+    vcenter_password: "{{ vcenter_pass }}"
+    validate_certs: false
+
+  tasks:
+    - name: Create VM from template
+      community.vmware.vmware_guest:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: "{{ validate_certs }}"
+        name: "{{ vm_name }}"
+        datacenter: "{{ datacenter }}"
+        folder: "{{ folder }}"
+        template: "{{ template_name }}"
+        state: present
+        hardware:
+          memory_mb: "{{ memory_mb }}"
+          num_cpus: "{{ cpu_count }}"
+        networks:
+          - name: "{{ network_name }}"
+            type: "{{ network_type | default('dvportgroup') }}"
+        wait_for_ip_address: yes
+      register: vm_create_result
+      tags:
+        - create_vm
+
+    - name: Display VM creation result
+      debug:
+        msg: "VM {{ vm_name }} created successfully with IP: {{ vm_create_result.instance.ipv4 }}"
+      tags:
+        - create_vm
+
+    - name: Power on VM
+      community.vmware.vmware_guest_powerstate:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: "{{ validate_certs }}"
+        name: "{{ vm_name }}"
+        state: powered-on
+      tags:
+        - power_on
+
+    - name: Wait for VM to be ready
+      community.vmware.vmware_guest_info:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: "{{ validate_certs }}"
+        name: "{{ vm_name }}"
+      register: vm_info
+      until: vm_info.instance.ipv4 is defined and vm_info.instance.ipv4 != None
+      retries: 30
+      delay: 10
+      tags:
+        - wait_for_vm
+
+    - name: Display VM information
+      debug:
+        var: vm_info.instance
+      tags:
+        - vm_info

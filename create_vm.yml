@@ -3,9 +3,9 @@
   hosts: localhost
   gather_facts: no
   vars:
-    vcenter_hostname: "infra-lab-vcenter.global.iff.com"
-    vcenter_username: "administrator@vsphere.local"
-    vcenter_password: "Sm15bkn8TvG6#T"
+    vcenter_hostname: ""
+    vcenter_username: ""
+    vcenter_password: ""
     validate_certs: false
 
   tasks:
